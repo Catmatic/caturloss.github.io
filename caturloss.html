@@ -1,0 +1,702 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Cross Chess Online - Host & Join with Waiting Room</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css"
+  />
+  <style>
+    body {
+      background-color: #3a352d;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .piece-gold {
+      color: #bfa243;
+    }
+    .piece-red {
+      color: #8b1a1a;
+    }
+    .piece-blue {
+      color: #3b5998;
+    }
+    .piece-green {
+      color: #2f6f4e;
+    }
+    .square {
+      width: 48px;
+      height: 48px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      cursor: pointer;
+      font-size: 28px;
+    }
+    .light-square {
+      background-color: #e6e6e6;
+    }
+    .dark-square {
+      background-color: #a3a3a3;
+    }
+    .highlight-move {
+      background-color: #facc15 !important; /* yellow highlight */
+    }
+    .highlight-selected {
+      outline: 3px solid #f59e0b; /* orange outline */
+    }
+    .disabled {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+  <!-- Nickname Screen -->
+  <div id="nickname-screen" class="hidden flex flex-col justify-center items-center flex-grow text-center px-4 max-w-xs mx-auto">
+    <h2 class="text-3xl font-bold text-yellow-400 mb-6 select-none">Masukkan Nickname</h2>
+    <input id="nickname-input" type="text" maxlength="15" placeholder="Nickname kamu" class="mb-6 rounded px-3 py-2 text-gray-900 font-semibold w-full text-center text-lg" />
+    <button id="nickname-submit-btn" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 rounded shadow-lg transition w-full">Lanjut</button>
+    <p id="nickname-error" class="mt-4 text-red-500 font-semibold hidden"></p>
+  </div>
+
+  <!-- Main Menu: Choose Host or Join -->
+  <div id="main-menu" class="flex flex-col justify-center items-center flex-grow text-center px-4">
+    <h1 class="text-5xl font-extrabold text-yellow-400 mb-6 select-none">Cross Chess Online</h1>
+    <div class="flex flex-col gap-6 max-w-xs w-full">
+      <button id="btn-host" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 rounded shadow-lg transition w-full">Host Game</button>
+      <button id="btn-join" class="bg-gray-700 hover:bg-gray-600 text-yellow-400 font-bold py-3 rounded shadow-lg transition w-full">Join Game</button>
+    </div>
+  </div>
+
+  <!-- Host Setup Screen -->
+  <div id="host-setup" class="hidden flex flex-col justify-center items-center flex-grow text-center px-4 max-w-md mx-auto">
+    <h2 class="text-3xl font-bold text-yellow-400 mb-6 select-none">Host Game</h2>
+    <div class="mb-4 w-full text-left">
+      <label for="bot-count" class="block text-gray-300 mb-2 font-semibold">Jumlah Bot:</label>
+      <select id="bot-count" class="rounded px-3 py-2 text-gray-900 font-semibold w-full">
+        <option value="0" selected>0</option>
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+      </select>
+    </div>
+    <div class="mb-6 w-full text-left">
+      <label for="bot-difficulty" class="block text-gray-300 mb-2 font-semibold">Tingkat Kesulitan Bot:</label>
+      <select id="bot-difficulty" class="rounded px-3 py-2 text-gray-900 font-semibold w-full">
+        <option value="easy" selected>Mudah</option>
+        <option value="medium">Sedang</option>
+        <option value="hard">Sulit</option>
+      </select>
+    </div>
+    <button id="host-start-btn" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 rounded shadow-lg transition w-full">Mulai Game</button>
+    <button id="host-back-btn" class="mt-4 bg-gray-700 hover:bg-gray-600 text-yellow-400 font-bold py-2 rounded shadow-lg transition w-full">Kembali</button>
+  </div>
+
+  <!-- Join Screen -->
+  <div id="join-screen" class="hidden flex flex-col justify-center items-center flex-grow text-center px-4 max-w-xs mx-auto">
+    <h2 class="text-3xl font-bold text-yellow-400 mb-6 select-none">Join Game</h2>
+    <input id="join-code" type="text" maxlength="4" placeholder="Masukkan Kode 4 Digit" class="mb-6 rounded px-3 py-2 text-gray-900 font-semibold w-full text-center text-xl tracking-widest" />
+    <button id="join-start-btn" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 rounded shadow-lg transition w-full">Gabung</button>
+    <button id="join-back-btn" class="mt-4 bg-gray-700 hover:bg-gray-600 text-yellow-400 font-bold py-2 rounded shadow-lg transition w-full">Kembali</button>
+    <p id="join-error" class="mt-4 text-red-500 font-semibold hidden"></p>
+  </div>
+
+  <!-- Waiting Room Screen -->
+  <div id="waiting-room" class="hidden flex flex-col items-center flex-grow p-4 max-w-md mx-auto w-full">
+    <h2 class="text-3xl font-bold text-yellow-400 mb-4 select-none">Waiting Room</h2>
+    <p class="mb-4 text-gray-300 select-none">Kode game: <span id="waiting-join-code" class="font-mono text-yellow-400 text-xl"></span></p>
+    <div class="w-full bg-gray-800 rounded p-4 mb-4 max-h-48 overflow-y-auto">
+      <h3 class="text-yellow-400 font-semibold mb-2 select-none">Pemain Terdaftar:</h3>
+      <ul id="player-list" class="list-disc list-inside text-gray-200"></ul>
+    </div>
+    <button id="start-game-btn" class="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-3 rounded shadow-lg transition w-full mb-4">Mulai Game</button>
+    <button id="waiting-leave-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded shadow-lg transition w-full">Keluar ke Menu Awal</button>
+  </div>
+
+  <!-- Game Screen -->
+  <div id="game-screen" class="hidden flex flex-col items-center p-4 flex-grow max-w-[720px] mx-auto w-full">
+    <div class="mb-4 text-yellow-400 font-semibold text-lg select-none" id="turn-indicator">Giliran: -</div>
+    <div class="mb-4 text-gray-300 select-none" id="game-info"></div>
+    <div class="relative grid grid-cols-11 grid-rows-11 gap-0 select-none" id="board" style="user-select:none;">
+      <!-- Squares and pieces will be generated by JS -->
+    </div>
+    <div class="mt-4 text-gray-300" id="status-text"></div>
+    <button id="leave-btn" class="mt-6 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded shadow-lg transition w-fit">Keluar ke Menu Awal</button>
+  </div>
+
+  <script>
+    // Chess piece unicode icons for each color and piece type
+    const piecesUnicode = {
+      gold: {
+        king: "♔",
+        queen: "♕",
+        rook: "♖",
+        bishop: "♗",
+        knight: "♘",
+        pawn: "♙",
+      },
+      red: {
+        king: "♚",
+        queen: "♛",
+        rook: "♜",
+        bishop: "♝",
+        knight: "♞",
+        pawn: "♟",
+      },
+      blue: {
+        king: "♔",
+        queen: "♕",
+        rook: "♖",
+        bishop: "♗",
+        knight: "♘",
+        pawn: "♙",
+      },
+      green: {
+        king: "♚",
+        queen: "♛",
+        rook: "♜",
+        bishop: "♝",
+        knight: "♞",
+        pawn: "♟",
+      },
+    };
+
+    const pieceClasses = {
+      gold: "piece-gold",
+      red: "piece-red",
+      blue: "piece-blue",
+      green: "piece-green",
+    };
+
+    // Game state variables
+    let board = [];
+    let selectedSquare = null;
+    let validMoves = [];
+    let currentTurn = null;
+    let playerColor = null;
+    let socket = null;
+    let gameStarted = false;
+    let isHost = false;
+    let botCount = 0;
+    let botDifficulty = "easy";
+    let joinCode = null;
+    const maxPlayers = 4;
+
+    // Player info
+    let nickname = null;
+    let players = []; // {nickname, color}
+
+    // Pawn directions
+    const pawnDirections = {
+      gold: { forward: [1, 0], captures: [[1, -1], [1, 1]] },
+      red: { forward: [-1, 0], captures: [[-1, -1], [-1, 1]] },
+      blue: { forward: [0, 1], captures: [[-1, 1], [1, 1]] },
+      green: { forward: [0, -1], captures: [[-1, -1], [1, -1]] },
+    };
+
+    const knightMoves = [
+      [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+      [1, -2], [1, 2], [2, -1], [2, 1],
+    ];
+
+    const turnOrder = ["gold", "red", "blue", "green"];
+    const colorsAvailable = ["gold", "red", "blue", "green"];
+
+    // Utility functions
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function isInsideCross4(r, c) {
+      if (r >= 2 && r <= 9 && c >= 2 && c <= 9) return true;
+      if ((c === 0 || c === 1) && r >= 2 && r <= 9) return true;
+      if ((c === 9 || c === 10) && r >= 2 && r <= 9) return true;
+      if ((r === 0 || r === 1) && c >= 2 && c <= 9) return true;
+      if ((r === 9 || r === 10) && c >= 2 && c <= 9) return true;
+      return false;
+    }
+
+    function initBoard() {
+      board = [];
+      const size = 11;
+      for (let r = 0; r < size; r++) {
+        const row = [];
+        for (let c = 0; c < size; c++) {
+          row.push(isInsideCross4(r, c) ? null : "X");
+        }
+        board.push(row);
+      }
+    }
+
+    const piecesOrder = ["rook", "knight", "bishop", "king", "queen", "bishop", "knight", "rook"];
+
+    function placeInitialPieces() {
+      // Place pieces only for players in the game
+      players.forEach(({ color }) => {
+        if (color === "gold") {
+          for (let c = 2; c <= 9; c++) {
+            board[0][c] = { color, type: piecesOrder[c - 2] };
+            board[1][c] = { color, type: "pawn" };
+          }
+        } else if (color === "red") {
+          for (let c = 2; c <= 9; c++) {
+            board[10][c] = { color, type: piecesOrder[c - 2] };
+            board[9][c] = { color, type: "pawn" };
+          }
+        } else if (color === "blue") {
+          for (let r = 2; r <= 9; r++) {
+            board[r][0] = { color, type: piecesOrder[r - 2] };
+            board[r][1] = { color, type: "pawn" };
+          }
+        } else if (color === "green") {
+          for (let r = 2; r <= 9; r++) {
+            board[r][10] = { color, type: piecesOrder[r - 2] };
+            board[r][9] = { color, type: "pawn" };
+          }
+        }
+      });
+    }
+
+    function createBoardUI() {
+      const boardDiv = document.getElementById("board");
+      boardDiv.innerHTML = "";
+      const size = 11;
+      boardDiv.style.gridTemplateColumns = `repeat(${size}, 48px)`;
+      boardDiv.style.gridTemplateRows = `repeat(${size}, 48px)`;
+
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const square = document.createElement("div");
+          square.dataset.row = r;
+          square.dataset.col = c;
+          square.classList.add("square");
+
+          const inside = isInsideCross4(r, c);
+          if (!inside) {
+            square.classList.add("bg-transparent", "pointer-events-none");
+            boardDiv.appendChild(square);
+            continue;
+          }
+
+          if ((r + c) % 2 === 0) {
+            square.classList.add("light-square");
+          } else {
+            square.classList.add("dark-square");
+          }
+
+          square.addEventListener("click", () => onSquareClick(r, c));
+
+          boardDiv.appendChild(square);
+        }
+      }
+    }
+
+    function renderPieces() {
+      const squares = document.querySelectorAll(".square");
+      squares.forEach((sq) => {
+        const r = parseInt(sq.dataset.row);
+        const c = parseInt(sq.dataset.col);
+        const piece = board[r][c];
+        sq.textContent = "";
+        sq.classList.remove("highlight-move", "highlight-selected");
+        sq.classList.remove(...Object.values(pieceClasses));
+        if (piece && piece !== "X") {
+          const icon = piecesUnicode[piece.color][piece.type];
+          sq.textContent = icon;
+          sq.classList.add(pieceClasses[piece.color]);
+        }
+      });
+    }
+
+    function highlightSquares() {
+      clearHighlights();
+      if (selectedSquare) {
+        const [r, c] = selectedSquare;
+        const selectedEl = getSquareElement(r, c);
+        if (selectedEl) selectedEl.classList.add("highlight-selected");
+        validMoves.forEach(([mr, mc]) => {
+          const el = getSquareElement(mr, mc);
+          if (el) el.classList.add("highlight-move");
+        });
+      }
+    }
+
+    function clearHighlights() {
+      document.querySelectorAll(".highlight-move").forEach(el => el.classList.remove("highlight-move"));
+      document.querySelectorAll(".highlight-selected").forEach(el => el.classList.remove("highlight-selected"));
+    }
+
+    function getSquareElement(r, c) {
+      return document.querySelector(`.square[data-row="${r}"][data-col="${c}"]`);
+    }
+
+    function isValidPos(r, c) {
+      const size = 11;
+      if (r < 0 || r >= size || c < 0 || c >= size) return false;
+      return isInsideCross4(r, c);
+    }
+
+    function isCurrentPlayerPiece(piece) {
+      return piece && piece.color === currentTurn;
+    }
+
+    function calculateValidMoves(r, c) {
+      const piece = board[r][c];
+      if (!piece) return [];
+      const moves = [];
+      const color = piece.color;
+      const type = piece.type;
+
+      function tryAddMove(rr, cc) {
+        if (!isValidPos(rr, cc)) return false;
+        const target = board[rr][cc];
+        if (target === null) {
+          moves.push([rr, cc]);
+          return true;
+        } else if (target.color !== color) {
+          moves.push([rr, cc]);
+          return false;
+        } else {
+          return false;
+        }
+      }
+
+      if (type === "pawn") {
+        const forward = pawnDirections[color].forward;
+        const fr = r + forward[0];
+        const fc = c + forward[1];
+        if (isValidPos(fr, fc) && board[fr][fc] === null) {
+          moves.push([fr, fc]);
+        }
+        for (const cap of pawnDirections[color].captures) {
+          const cr = r + cap[0];
+          const cc = c + cap[1];
+          if (isValidPos(cr, cc)) {
+            const target = board[cr][cc];
+            if (target && target.color !== color) {
+              moves.push([cr, cc]);
+            }
+          }
+        }
+      } else if (type === "knight") {
+        for (const [dr, dc] of knightMoves) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (!isValidPos(nr, nc)) continue;
+          const target = board[nr][nc];
+          if (!target || target.color !== color) {
+            moves.push([nr, nc]);
+          }
+        }
+      } else if (type === "bishop" || type === "queen" || type === "king" || type === "rook") {
+        const rookDirs = [[1,0],[-1,0],[0,1],[0,-1]];
+        const bishopDirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+        let directions = [];
+        if (type === "rook") directions = rookDirs;
+        else if (type === "bishop") directions = bishopDirs;
+        else if (type === "queen") directions = rookDirs.concat(bishopDirs);
+        else if (type === "king") directions = rookDirs.concat(bishopDirs);
+
+        for (const [dr, dc] of directions) {
+          let nr = r + dr;
+          let nc = c + dc;
+          if (type === "king") {
+            if (isValidPos(nr, nc)) {
+              const target = board[nr][nc];
+              if (!target || target.color !== color) {
+                moves.push([nr, nc]);
+              }
+            }
+          } else {
+            while (isValidPos(nr, nc)) {
+              const cont = tryAddMove(nr, nc);
+              if (!cont) break;
+              nr += dr;
+              nc += dc;
+            }
+          }
+        }
+      }
+
+      return moves;
+    }
+
+    function onSquareClick(r, c) {
+      if (!gameStarted) return;
+      if (currentTurn !== playerColor) return;
+
+      const clickedPiece = board[r][c];
+
+      if (selectedSquare && validMoves.some(([mr, mc]) => mr === r && mc === c)) {
+        makeMove(selectedSquare, [r, c]);
+        return;
+      }
+
+      if (clickedPiece && clickedPiece.color === playerColor) {
+        selectedSquare = [r, c];
+        validMoves = calculateValidMoves(r, c);
+        highlightSquares();
+      } else {
+        selectedSquare = null;
+        validMoves = [];
+        clearHighlights();
+      }
+    }
+
+    function makeMove(from, to) {
+      const [fr, fc] = from;
+      const [tr, tc] = to;
+      const movingPiece = board[fr][fc];
+      if (!movingPiece) return;
+
+      board[tr][tc] = movingPiece;
+      board[fr][fc] = null;
+
+      selectedSquare = null;
+      validMoves = [];
+      clearHighlights();
+      renderPieces();
+
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: "move",
+          from: { r: fr, c: fc },
+          to: { r: tr, c: tc },
+          color: playerColor,
+        }));
+      }
+
+      setTurnIndicator("Menunggu giliran pemain lain...");
+      disableBoard(true);
+    }
+
+    function disableBoard(disable) {
+      const squares = document.querySelectorAll(".square");
+      squares.forEach(sq => {
+        if (disable) {
+          sq.classList.add("disabled");
+        } else {
+          sq.classList.remove("disabled");
+        }
+      });
+    }
+
+    function setTurnIndicator(text) {
+      const el = document.getElementById("turn-indicator");
+      el.textContent = text;
+    }
+
+    function setStatusText(text) {
+      const el = document.getElementById("status-text");
+      el.textContent = text;
+    }
+
+    function nextTurn(current) {
+      let idx = turnOrder.indexOf(current);
+      idx = (idx + 1) % turnOrder.length;
+      return turnOrder[idx];
+    }
+
+    function handleOpponentMove(data) {
+      if (!data.from || !data.to) return;
+      const fr = data.from.r;
+      const fc = data.from.c;
+      const tr = data.to.r;
+      const tc = data.to.c;
+      const movingPiece = board[fr][fc];
+      if (!movingPiece) return;
+
+      board[tr][tc] = movingPiece;
+      board[fr][fc] = null;
+
+      renderPieces();
+
+      currentTurn = nextTurn(currentTurn);
+      if (currentTurn === playerColor) {
+        setTurnIndicator("Giliran kamu (" + capitalize(playerColor) + ")");
+        disableBoard(false);
+      } else {
+        setTurnIndicator("Giliran pemain " + capitalize(currentTurn));
+        disableBoard(true);
+      }
+    }
+
+    function generateJoinCode() {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code = "";
+      for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    }
+
+    // UI and flow control
+
+    // Show nickname screen before host or join
+    function showNicknameScreen(nextScreen) {
+      document.getElementById("main-menu").classList.add("hidden");
+      document.getElementById("nickname-screen").classList.remove("hidden");
+      nicknameNextScreen = nextScreen;
+      document.getElementById("nickname-input").value = "";
+      document.getElementById("nickname-error").classList.add("hidden");
+    }
+
+    // Store next screen after nickname input
+    let nicknameNextScreen = null;
+
+    // Add player to players list and update waiting room list UI
+    function addPlayerToList(nick, color) {
+      players.push({ nickname: nick, color });
+      updatePlayerListUI();
+    }
+
+    // Update waiting room player list UI
+    function updatePlayerListUI() {
+      const ul = document.getElementById("player-list");
+      ul.innerHTML = "";
+      players.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = `${p.nickname} (${capitalize(p.color)})`;
+        ul.appendChild(li);
+      });
+    }
+
+    // Show waiting room screen
+    function showWaitingRoom() {
+      document.getElementById("nickname-screen").classList.add("hidden");
+      document.getElementById("host-setup").classList.add("hidden");
+      document.getElementById("join-screen").classList.add("hidden");
+      document.getElementById("waiting-room").classList.remove("hidden");
+      document.getElementById("game-screen").classList.add("hidden");
+
+      // Show join code
+      if (joinCode) {
+        document.getElementById("waiting-join-code").textContent = joinCode;
+      } else {
+        document.getElementById("waiting-join-code").textContent = "N/A";
+      }
+      updatePlayerListUI();
+    }
+
+    // Start actual game from waiting room
+    function startActualGame() {
+      gameStarted = true;
+      initBoard();
+      placeInitialPieces();
+      createBoardUI();
+      renderPieces();
+
+      currentTurn = "gold";
+      setTurnIndicator("Giliran pemain " + capitalize(currentTurn));
+      playerColor = players.find(p => p.nickname === nickname)?.color || "gold";
+      disableBoard(currentTurn !== playerColor);
+
+      document.getElementById("waiting-room").classList.add("hidden");
+      document.getElementById("game-screen").classList.remove("hidden");
+      setStatusText("Game dimulai!");
+    }
+
+    // Event listeners
+
+    // Main menu buttons
+    document.getElementById("btn-host").addEventListener("click", () => {
+      isHost = true;
+      showNicknameScreen("host-setup");
+    });
+    document.getElementById("btn-join").addEventListener("click", () => {
+      isHost = false;
+      showNicknameScreen("join-screen");
+    });
+
+    // Nickname submit
+    document.getElementById("nickname-submit-btn").addEventListener("click", () => {
+      const input = document.getElementById("nickname-input");
+      const val = input.value.trim();
+      if (!val) {
+        document.getElementById("nickname-error").textContent = "Nickname tidak boleh kosong.";
+        document.getElementById("nickname-error").classList.remove("hidden");
+        return;
+      }
+      nickname = val;
+      document.getElementById("nickname-screen").classList.add("hidden");
+      document.getElementById(nicknameNextScreen).classList.remove("hidden");
+    });
+
+    // Host setup buttons
+    document.getElementById("host-back-btn").addEventListener("click", () => {
+      document.getElementById("host-setup").classList.add("hidden");
+      document.getElementById("main-menu").classList.remove("hidden");
+    });
+    document.getElementById("host-start-btn").addEventListener("click", () => {
+      botCount = parseInt(document.getElementById("bot-count").value);
+      botDifficulty = document.getElementById("bot-difficulty").value;
+      joinCode = generateJoinCode();
+      players = [];
+      addPlayerToList(nickname, "gold"); // Host is gold
+      showWaitingRoom();
+    });
+
+    // Join screen buttons
+    document.getElementById("join-back-btn").addEventListener("click", () => {
+      document.getElementById("join-screen").classList.add("hidden");
+      document.getElementById("main-menu").classList.remove("hidden");
+    });
+    document.getElementById("join-start-btn").addEventListener("click", () => {
+      const code = document.getElementById("join-code").value.trim().toUpperCase();
+      if (!/^[A-Z0-9]{4}$/.test(code)) {
+        const err = document.getElementById("join-error");
+        err.textContent = "Kode harus 4 karakter (A-Z, 0-9).";
+        err.classList.remove("hidden");
+        return;
+      }
+      joinCode = code;
+      players = [];
+      // For demo, assign red to joiner (in real app, server assigns color)
+      addPlayerToList(nickname, "red");
+      showWaitingRoom();
+    });
+
+    // Waiting room buttons
+    document.getElementById("waiting-leave-btn").addEventListener("click", () => {
+      players = [];
+      joinCode = null;
+      nickname = null;
+      gameStarted = false;
+      document.getElementById("waiting-room").classList.add("hidden");
+      document.getElementById("main-menu").classList.remove("hidden");
+    });
+
+    document.getElementById("start-game-btn").addEventListener("click", () => {
+      if (players.length < 2) {
+        alert("Minimal 2 pemain untuk memulai game.");
+        return;
+      }
+      startActualGame();
+    });
+
+    // Leave game button
+    document.getElementById("leave-btn").addEventListener("click", () => {
+      players = [];
+      joinCode = null;
+      nickname = null;
+      gameStarted = false;
+      document.getElementById("game-screen").classList.add("hidden");
+      document.getElementById("main-menu").classList.remove("hidden");
+      setStatusText("");
+      setTurnIndicator("Giliran: -");
+      document.getElementById("game-info").textContent = "";
+    });
+
+    // The rest of the game logic (move handling, socket, etc.) can be added here or reused from previous code.
+
+  </script>
+</body>
+</html>
